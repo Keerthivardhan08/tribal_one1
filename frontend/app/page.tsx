@@ -50,6 +50,18 @@ const [grievances, setGrievances]=useState<any[]>([]);
 const [grvForm, setGrvForm]=useState({category:'', description:''});
 
 async function call(path:string, opts:any={}){const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts}); const data=await r.json(); if(!r.ok) throw new Error(data.detail||'Request failed'); return data;}
+function logout() {
+  setUser(null);
+  setApps([]);
+  setDocs([]);
+  setNotes([]);
+  setSchemes([]);
+  setCvlSteps([]);
+  setShowCVL(false);
+  setGrievances([]);
+  setTab('overview');
+  setMessage('');
+}
 async function auth(){
   if (!identifier.trim()) { setMessage('Please enter your mobile number or email.'); return; }
   if (!password.trim()) { setMessage('Please enter your password.'); return; }
@@ -184,7 +196,7 @@ async function updateAppStatus(id:string, status:string, remarks:string=''){
     setMessage(`Application marked as ${status.replace('_', ' ')}`);
   } catch(e:any) { setMessage(e.message) }
 }
-if(user) return <Dashboard user={user} tab={tab} setTab={setTab} apps={apps} docs={docs} setDocs={setDocs} notes={notes} schemes={schemes} form={appForm} setForm={setAppForm} submitApp={submitApp} addDoc={addDoc} isFetchingDoc={isFetchingDoc} setIsFetchingDoc={setIsFetchingDoc} processDBT={processDBT} updateAppStatus={updateAppStatus} message={message} cvlSteps={cvlSteps} showCVL={showCVL} setShowCVL={setShowCVL} />;
+if(user) return <Dashboard user={user} tab={tab} setTab={setTab} apps={apps} docs={docs} setDocs={setDocs} notes={notes} schemes={schemes} form={appForm} setForm={setAppForm} submitApp={submitApp} addDoc={addDoc} isFetchingDoc={isFetchingDoc} setIsFetchingDoc={setIsFetchingDoc} processDBT={processDBT} updateAppStatus={updateAppStatus} message={message} cvlSteps={cvlSteps} showCVL={showCVL} setShowCVL={setShowCVL} logout={logout} />;
 return <main className="auth">
 
 <section className="hero"> <div className="brand">🌿 <b>Tribal Scholarship</b></div> <div className="heroText"><span className="pill">ONE UNIFIED JOURNEY</span><h1>Scholarships, <em>simplified.</em></h1><p>Discover • Apply • Verify • Receive — in one secure, friendly platform.</p></div> <div className="journey">{['🔎 Discover','📝 Apply','📄 Verify','✅ Approve','💳 Receive'].map((x,i)=><div key={x}><b>{i+1}</b>{x}</div>)}</div>
@@ -192,7 +204,7 @@ return <main className="auth">
 <div className="jagoMini">🤖 <b>Jago AI</b><span> Your 24/7 scholarship companion</span></div> </section> <section className="authCard"> <div className="tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Login</button><button className={mode==='register'?'active':''} onClick={()=>{setMode('register');setRole('student')}}>Register</button></div> <h2>{mode==='login'?'Welcome back 👋':'Create your student account ✨'}</h2> <p className="muted">{mode==='login'?'Choose your portal to continue.':'Start your unified scholarship journey.'}</p> <div className="roles">{roles.map(r=><button disabled={mode==='register'&&r.id!=='student'} onClick={()=>setRole(r.id)} className={role===r.id?'role selected':'role'} key={r.id}><span>{r.icon}</span><b>{r.name}</b><small>{r.desc}</small></button>)}</div> {mode==='register'&&<label>Name<input value={name} onChange={e=>setName(e.target.value)} placeholder="Your full name"/></label>} <label>Mobile / Email<input value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder="Enter mobile number or email"/></label> <label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••"/></label> <button className="primary" onClick={auth}>{mode==='login'?'Continue →':'Create account →'}</button> <div className="secure">🔐 Secure access • Role-based permissions • Privacy-first design</div> {message&&<div className="toast">{message}</div>} </section> </main> }
 
 function Dashboard(p:any){
-const {user,tab,setTab,apps,docs,setDocs,notes,schemes,form,setForm,submitApp,addDoc,isFetchingDoc,setIsFetchingDoc,processDBT,updateAppStatus,message,cvlSteps,showCVL,setShowCVL}=p;
+const {user,tab,setTab,apps,docs,setDocs,notes,schemes,form,setForm,submitApp,addDoc,isFetchingDoc,setIsFetchingDoc,processDBT,updateAppStatus,message,cvlSteps,showCVL,setShowCVL,logout}=p;
 const student=user.role==='student';
 const counts={submitted:apps.length,verified:apps.filter((a:any)=>['VERIFIED','NODAL_APPROVED','SANCTIONED','DBT_PROCESSING','PAID'].includes(a.status)).length,paid:apps.filter((a:any)=>a.status==='PAID').length};
 
@@ -244,7 +256,7 @@ const [expandedScheme, setExpandedScheme] = useState<string|null>(null);
   };
 
 return <main className="dash">
-<header><div className="brand">🌿 <b>Tribal Scholarship</b></div><div className="headerRight"><button className="jagoBtn" onClick={()=>setTab('jago')}>🤖 Ask Jago</button><button onClick={()=>setTab('notifications')}>🔔 {notes.filter((n:any)=>!n.read).length}</button><div className="avatar">{user.name?.[0]||'U'}</div></div></header> <div className="layout"><aside><div className="welcome"><span>{student?'Student Portal':'Operations Portal'}</span><b>{user.name}</b></div>{(student?['overview','schemes','apply','track','documents','api-status','notifications','grievances','jago']:['overview','applications','exceptions','payments','grievances','analytics']).map((x:string)=><button className={tab===x?'nav active':'nav'} onClick={()=>setTab(x)} key={x}>{({overview:'🏠 Overview',schemes:'🎓 Scholarships',apply:'📝 Apply',track:'📍 Track Status',documents:'📄 Document Wallet','api-status':'⚡ API Status',notifications:'🔔 Notifications',grievances:'🆘 Grievances',jago:'🤖 Jago',applications:'📋 Applications',exceptions:'⚠️ Exceptions',payments:'💳 DBT & Payments',analytics:'📊 Analytics'} as any)[x]}</button>)}</aside> <section className="content"><div className="pageTop"><div><span className="eyebrow">UNIFIED SCHOLARSHIP JOURNEY</span><h1>{tab==='overview'?`Good day, ${user.name?.split(' ')[0]||'there'} 👋`:tab==='api-status'?'API Integrations':tab.replace('-', ' ')}</h1></div><span className="statusBadge">● API Setu Connected</span></div>{message&&<div className="toast wide">{message}</div>}
+<header><div className="brand">🌿 <b>Tribal Scholarship</b></div><div className="headerRight"><button className="jagoBtn" onClick={()=>setTab('jago')}>🤖 Ask Jago</button><button className="jagoBtn" onClick={logout}>🚪 Logout</button><button onClick={()=>setTab('notifications')}>🔔 {notes.filter((n:any)=>!n.read).length}</button><div className="avatar">{user.name?.[0]||'U'}</div></div></header> <div className="layout"><aside><div className="welcome"><span>{student?'Student Portal':'Operations Portal'}</span><b>{user.name}</b></div>{(student?['overview','schemes','apply','track','documents','api-status','notifications','grievances','jago']:['overview','applications','exceptions','payments','grievances','analytics']).map((x:string)=><button className={tab===x?'nav active':'nav'} onClick={()=>setTab(x)} key={x}>{({overview:'🏠 Overview',schemes:'🎓 Scholarships',apply:'📝 Apply',track:'📍 Track Status',documents:'📄 Document Wallet','api-status':'⚡ API Status',notifications:'🔔 Notifications',grievances:'🆘 Grievances',jago:'🤖 Jago',applications:'📋 Applications',exceptions:'⚠️ Exceptions',payments:'💳 DBT & Payments',analytics:'📊 Analytics'} as any)[x]}</button>)}</aside> <section className="content"><div className="pageTop"><div><span className="eyebrow">UNIFIED SCHOLARSHIP JOURNEY</span><h1>{tab==='overview'?`Good day, ${user.name?.split(' ')[0]||'there'} 👋`:tab==='api-status'?'API Integrations':tab.replace('-', ' ')}</h1></div><span className="statusBadge">● API Setu Connected</span></div>{message&&<div className="toast wide">{message}</div>}
 
 {showCVL && <div className="cvlOverlay" onClick={()=>setShowCVL(false)}><div className="cvlModal" onClick={e=>e.stopPropagation()}>
 <h3>⚡ CVL Orchestration Engine</h3>
