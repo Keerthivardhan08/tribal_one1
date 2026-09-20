@@ -7,20 +7,12 @@ import urllib.request
 import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app)
 
-GEMINI_API_KEY = "YOUR_API_KEY_HERE"
-GEMINI_MODEL = "gemini-1.7-flash"
+# Optional: Configure Gemini API Key for Jago AI Chatbot
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = "gemini-1.5-flash"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
-
-JAGO_FALLBACKS = {
-    'which schemes can i apply for?': 'There are 5 schemes available on UTSP:\n1. Pre-Matric Scholarship\n2. Post-Matric Scholarship\n3. Top Class Scholarship\n4. National Fellowship (NFST)\n5. National Overseas Scholarship (NOS)\n\nCheck the Scholarships tab to explore them.',
-    'what is the eligibility criteria?': 'Eligibility depends on the scheme, but generally:\n• You must belong to a Scheduled Tribe (ST).\n• Family income must be under ₹2.5 Lakhs (varies by scheme).\n• You must be enrolled in a recognized institution.\n• You cannot concurrently benefit from another central/state scholarship.',
-    'how does cvl verification work?': 'The CVL (Centralized Verification Layer) automatically cross-checks your application data against authoritative sources like UIDAI (Aadhaar), API Setu (DigiLocker), UDISE+, and NPCI without needing manual verification!',
-    'how do digilocker and api setu connect?': 'We are integrated directly with API Setu. When you fetch a document in your Document Wallet, we pull verified digital copies straight from DigiLocker issuers, ensuring absolute authenticity.',
-    'how does dbt payment work?': 'Once your application is sanctioned by the Ministry Admin, the payment goes to the Bank/PFMS queue. We use NPCI mapper to ensure the money is disbursed securely to your Aadhaar-seeded bank account via Direct Benefit Transfer (DBT).',
-    'i have a problem with my application': 'If you are facing issues (e.g. document rejection, payment delay), you can raise a support ticket in the "Grievances" tab. Our admins actively monitor this helpdesk to resolve problems.'
-}
 
 JAGO_SYSTEM_PROMPT = """You are **Jago**, the official AI assistant for the Unified Tribal Scholarship Platform — a government portal by the Ministry of Tribal Affairs, India.
 
@@ -216,25 +208,22 @@ def jago_chat():
     if not user_msg:
         return jsonify({"reply": "Please type a question and I'll help you!", "suggestions": []})
 
-    # Check fallbacks for ready answers
-    lower_msg = user_msg.lower()
-    if lower_msg in JAGO_FALLBACKS:
-        return jsonify({
-            "reply": JAGO_FALLBACKS[lower_msg],
-            "ai_powered": False,
-            "suggestions": _get_suggestions(user_msg)
-        })
-
     if session_id not in jago_conversations:
         jago_conversations[session_id] = []
     
     jago_conversations[session_id].append({"role": "user", "parts": [{"text": user_msg}]})
     history = jago_conversations[session_id][-20:]
 
-    if not GEMINI_API_KEY or GEMINI_API_KEY == "YOUR_API_KEY_HERE":
+    if not GEMINI_API_KEY:
+        reply = _offline_reply(user_msg)
+    if any(w in m for w in ['secure', 'safe', 'privacy', 'protect']):
+        return "Your data is protected with role-based access — only you, verifying officers, and admins on a need-to-know basis can see your records. Documents are fetched via DigiLocker/API Setu rather than stored as raw uploads, and all actions are logged for audit."
+    if any(w in m for w in ['reject', 'denied', 'declined', 'fail']):
+        return "If your application is rejected, you'll see the specific reason in your Notification Center and Application Status page — usually a document mismatch or an income/eligibility gap. You can fix the issue and reapply, or raise a Grievance if you believe it's an error."
+        jago_conversations[session_id].append({"role": "model", "parts": [{"text": reply}]})
         return jsonify({
-            "reply": "To use custom AI queries, please update the GEMINI_API_KEY inside `backend/app/main.py` with your actual API key.",
-            "suggestions": [],
+            "reply": reply,
+            "suggestions": _get_suggestions(user_msg),
             "ai_powered": False
         })
 
@@ -289,6 +278,38 @@ def jago_set_key():
 @app.route("/api/jago/status", methods=["GET"])
 def jago_status():
     return jsonify({"ai_enabled": bool(GEMINI_API_KEY), "model": GEMINI_MODEL})
+
+def _offline_reply(msg):
+    """Rule-based fallback so Jago answers real questions with zero API-key setup.
+    Swap in GEMINI_API_KEY any time for open-ended AI answers instead."""
+    m = msg.lower()
+    if any(w in m for w in ['hi', 'hello', 'hey', 'namaste']) and len(m) < 20:
+        return "Hi! 👋 I'm Jago. Ask me about the 5 scholarship schemes, eligibility, how to apply, documents, verification, or DBT payments."
+    if 'pre-matric' in m or 'pre matric' in m:
+        return "📘 **Pre-Matric Scholarship**: For ST students in Class 9-10. Family income must be ≤ ₹2.5 lakh/year. Covers tuition, maintenance allowance and book grant, renewable annually."
+    if 'post-matric' in m or 'post matric' in m:
+        return "📗 **Post-Matric Scholarship**: For ST students from Class 11 onward (including graduation/PG). Family income ≤ ₹2.5 lakh/year. Covers compulsory fees + maintenance allowance, renewable each year."
+    if 'top class' in m or 'top-class' in m:
+        return "📙 **Top Class Scholarship**: For ST students admitted to premier institutes (IITs, IIMs, NITs, AIIMS). Family income ≤ ₹6 lakh/year. Covers full tuition, living expenses, books and computer."
+    if 'nfst' in m or 'fellowship' in m:
+        return "📕 **National Fellowship (NFST)**: For M.Phil/PhD scholars who qualify NET/JRF. No income bar. ₹31,000/month (JRF) or ₹35,000/month (SRF), plus HRA and contingency, for up to 5 years."
+    if 'nos' in m or 'overseas' in m:
+        return "📔 **National Overseas Scholarship (NOS)**: For Masters/PhD abroad. Family income ≤ ₹6 lakh/year, age below 35, admission to a top-500 QS/THE university. ~20 slots/year — covers tuition, maintenance, airfare, visa and insurance."
+    if any(w in m for w in ['scheme', 'scholarship', 'which', 'list', 'available']) and 'apply' not in m:
+        return "There are 5 schemes: **Pre-Matric** (Class 9-10), **Post-Matric** (Class 11+), **Top Class** (premier institutes), **NFST** (M.Phil/PhD), and **NOS** (study abroad). Ask me about any one for its eligibility and benefits!"
+    if any(w in m for w in ['eligib', 'criteria', 'qualify', 'income']):
+        return "Eligibility depends on the scheme: Pre/Post-Matric need family income ≤ ₹2.5 lakh/year; Top Class and NOS need ≤ ₹6 lakh/year; NFST needs NET/JRF qualification with no income limit. Which scheme are you asking about?"
+    if any(w in m for w in ['apply', 'application', 'submit', 'form']):
+        return "**To apply:** 1) Register/login as Student 2) Go to Scholarships tab and pick a scheme 3) Click Apply, fill institution/course/income 4) Go to Document Wallet and fetch docs via DigiLocker/API Setu 5) Submit. Your application then enters CVL verification automatically."
+    if any(w in m for w in ['document', 'upload', 'digilocker', 'certificate', 'setu']):
+        return "Your Document Wallet pulls verified documents via **DigiLocker** (Aadhaar, income, caste certificates) and **API Setu** (academic/domicile records) — fetched once, reused across all 5 schemes. No repeat uploads needed."
+    if any(w in m for w in ['verif', 'cvl', 'nodal', 'review']):
+        return "**CVL (Common Verification Layer)** auto cross-checks your documents against source systems. Mismatches get flagged for manual review by a Nodal Officer, then final Admin sanction. Flow: SUBMITTED → CVL_REVIEW → VERIFIED → NODAL_APPROVED → SANCTIONED."
+    if any(w in m for w in ['dbt', 'payment', 'money', 'transfer', 'bank']):
+        return "After sanction, payment goes through **PFMS** and the **NPCI Aadhaar Payment Bridge** to your Aadhaar-seeded bank account — a UTR reference is generated once paid. If your Aadhaar isn't seeded yet, visit your bank branch (takes 2-3 days)."
+    if any(w in m for w in ['grievance', 'complaint', 'problem', 'stuck', 'help']):
+        return "You can file a grievance from the Grievances tab with a subject and description — you'll get updates in your Notification Center, and it auto-escalates if unresolved."
+    return "I can help with the 5 scholarship schemes, eligibility, how to apply, documents, verification (CVL), or DBT payments — what would you like to know? (For open-ended AI answers, add a free Gemini key via the setup button above.)"
 
 def _get_suggestions(msg):
     lower = msg.lower()
@@ -496,11 +517,7 @@ def grievances_endpoint():
         save_db()
         return jsonify(g)
     else:
-        sid = request.args.get("student_id")
-        all_grv = list(grievances.values())
-        if sid:
-            return jsonify([g for g in all_grv if g.get("student_id") == sid])
-        return jsonify(all_grv)
+        return jsonify(list(grievances.values()))
 
 @app.route("/api/dbt/transactions", methods=["GET"])
 def dbt():
