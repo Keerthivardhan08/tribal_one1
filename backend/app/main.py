@@ -10,14 +10,14 @@ app = Flask(__name__)
 CORS(app)
 
 # Optional: Configure Gemini API Key for Jago AI Chatbot
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = "gemini-1.5-flash"
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+FEATHERLESS_API_KEY = os.environ.get("FEATHERLESS_API_KEY", "")
+FEATHERLESS_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+FEATHERLESS_URL = "https://api.featherless.ai/v1/chat/completions"
 
-JAGO_SYSTEM_PROMPT = """You are **Jago**, the official AI assistant for the Unified Tribal Scholarship Platform — a government portal by the Ministry of Tribal Affairs, India.
+JAGO_SYSTEM_PROMPT = """You are **Jago**, the official MULTILINGUAL AI assistant for the Unified Tribal Scholarship Platform — a government portal by the Ministry of Tribal Affairs, India.
 
 ## YOUR ROLE
-You help students, nodal officers, admins, and bank/DBT users navigate the portal. You answer questions clearly, warmly, and accurately. Use emojis naturally. Keep answers concise but thorough. Use bullet points and bold text for readability. Always stay on-topic about the portal and tribal welfare scholarships.
+You help students, nodal officers, admins, and bank/DBT users navigate the portal. **You must detect the language of the user's message and reply in that exact same language (e.g., Hindi, English, Odia, Bengali, Santali, etc.).** You answer questions clearly, warmly, and accurately. Use emojis naturally. Keep answers concise but thorough. Use bullet points and bold text for readability. Always stay on-topic about the portal and tribal welfare scholarships.
 
 ## PORTAL OVERVIEW
 This is a unified digital platform that consolidates all tribal (ST) scholarship schemes into one journey: Discover > Apply > Verify > Approve > Receive. It features:
@@ -211,16 +211,14 @@ def jago_chat():
     if session_id not in jago_conversations:
         jago_conversations[session_id] = []
     
-    jago_conversations[session_id].append({"role": "user", "parts": [{"text": user_msg}]})
-    history = jago_conversations[session_id][-20:]
+    jago_conversations[session_id].append({"role": "user", "content": user_msg})
+    
+    # Featherless uses OpenAI format messages
+    messages = [{"role": "system", "content": JAGO_SYSTEM_PROMPT}] + jago_conversations[session_id][-20:]
 
-    if not GEMINI_API_KEY:
+    if not FEATHERLESS_API_KEY:
         reply = _offline_reply(user_msg)
-    if any(w in m for w in ['secure', 'safe', 'privacy', 'protect']):
-        return "Your data is protected with role-based access — only you, verifying officers, and admins on a need-to-know basis can see your records. Documents are fetched via DigiLocker/API Setu rather than stored as raw uploads, and all actions are logged for audit."
-    if any(w in m for w in ['reject', 'denied', 'declined', 'fail']):
-        return "If your application is rejected, you'll see the specific reason in your Notification Center and Application Status page — usually a document mismatch or an income/eligibility gap. You can fix the issue and reapply, or raise a Grievance if you believe it's an error."
-        jago_conversations[session_id].append({"role": "model", "parts": [{"text": reply}]})
+        jago_conversations[session_id].append({"role": "assistant", "content": reply})
         return jsonify({
             "reply": reply,
             "suggestions": _get_suggestions(user_msg),
@@ -229,27 +227,28 @@ def jago_chat():
 
     try:
         body = json.dumps({
-            "system_instruction": {"parts": [{"text": JAGO_SYSTEM_PROMPT}]},
-            "contents": history,
-            "generationConfig": {
-                "temperature": 0.7,
-                "topP": 0.9,
-                "maxOutputTokens": 1024
-            }
+            "model": FEATHERLESS_MODEL,
+            "messages": messages,
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "max_tokens": 1024
         }).encode("utf-8")
 
         req = urllib.request.Request(
-            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+            FEATHERLESS_URL,
             data=body,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {FEATHERLESS_API_KEY}"
+            },
             method="POST"
         )
 
         with urllib.request.urlopen(req, timeout=15) as resp:
             result = json.loads(resp.read().decode("utf-8"))
 
-        reply = result["candidates"][0]["content"]["parts"][0]["text"]
-        jago_conversations[session_id].append({"role": "model", "parts": [{"text": reply}]})
+        reply = result["choices"][0]["message"]["content"]
+        jago_conversations[session_id].append({"role": "assistant", "content": reply})
 
         return jsonify({
             "reply": reply,
@@ -267,17 +266,17 @@ def jago_chat():
 
 @app.route("/api/jago/set-key", methods=["POST"])
 def jago_set_key():
-    global GEMINI_API_KEY
+    global FEATHERLESS_API_KEY
     payload = request.json
     key = payload.get("key", "").strip()
     if key:
-        GEMINI_API_KEY = key
-        return jsonify({"ok": True, "message": "Gemini API key configured successfully!"})
+        FEATHERLESS_API_KEY = key
+        return jsonify({"ok": True, "message": "Featherless API key configured successfully!"})
     return jsonify({"ok": False, "message": "No key provided"}), 400
 
 @app.route("/api/jago/status", methods=["GET"])
 def jago_status():
-    return jsonify({"ai_enabled": bool(GEMINI_API_KEY), "model": GEMINI_MODEL})
+    return jsonify({"ai_enabled": bool(FEATHERLESS_API_KEY), "model": FEATHERLESS_MODEL})
 
 def _offline_reply(msg):
     """Rule-based fallback so Jago answers real questions with zero API-key setup.
@@ -309,7 +308,7 @@ def _offline_reply(msg):
         return "After sanction, payment goes through **PFMS** and the **NPCI Aadhaar Payment Bridge** to your Aadhaar-seeded bank account — a UTR reference is generated once paid. If your Aadhaar isn't seeded yet, visit your bank branch (takes 2-3 days)."
     if any(w in m for w in ['grievance', 'complaint', 'problem', 'stuck', 'help']):
         return "You can file a grievance from the Grievances tab with a subject and description — you'll get updates in your Notification Center, and it auto-escalates if unresolved."
-    return "I can help with the 5 scholarship schemes, eligibility, how to apply, documents, verification (CVL), or DBT payments — what would you like to know? (For open-ended AI answers, add a free Gemini key via the setup button above.)"
+    return "I can help with the 5 scholarship schemes, eligibility, how to apply, documents, verification (CVL), or DBT payments — what would you like to know? (For multilingual open-ended AI answers, add a Featherless API key via the setup button above.)"
 
 def _get_suggestions(msg):
     lower = msg.lower()
@@ -547,6 +546,6 @@ def metrics():
         "manual_review":sum(1 for a in applications.values() if a["status"]=="CVL_REVIEW")})
 
 if __name__ == "__main__":
-    print("\n[Jago AI]", "Gemini key configured" if GEMINI_API_KEY else "No key - set GEMINI_API_KEY or use the setup button in Jago")
+    print("\n[Jago AI]", "Featherless key configured" if FEATHERLESS_API_KEY else "No key - set FEATHERLESS_API_KEY or use the setup button in Jago")
     print("[Server] Starting API on http://localhost:8000\n")
     app.run(host="127.0.0.1", port=8000, debug=True)
