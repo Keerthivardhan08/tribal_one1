@@ -1088,3 +1088,31 @@ function Operations({role,apps,processDBT,updateAppStatus,schemes}:any){
 
   </>
 }
+<div className="formCard">
+  <div className="sectionHeader">
+    <div>
+      <span className="eyebrow">
+        Support
+      </span>
+
+      <h2>Submit a Grievance</h2>
+    </div>
+  </div>
+
+  <div className="inputGroup">
+    <label>Subject</label>
+    <input placeholder="Enter grievance subject" />
+  </div>
+
+  <div className="inputGroup">
+    <label>Description</label>
+    <textarea
+      rows={5}
+      placeholder="Describe your issue..."
+    />
+  </div>
+
+  <button className="primary">
+    Submit Grievance
+  </button>
+</div>
