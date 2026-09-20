@@ -1116,3 +1116,71 @@ function Operations({role,apps,processDBT,updateAppStatus,schemes}:any){
     Submit Grievance
   </button>
 </div>
+<div className="sidebarProfile">
+  <div className="profileAvatar">
+    {(user?.name || 'S').charAt(0).toUpperCase()}
+  </div>
+
+  <div className="profileInfo">
+    <strong>{user?.name || 'Student'}</strong>
+    <span>Student Account</span>
+  </div>
+</div>
+<section className="quickActions">
+  <div className="sectionHeader">
+    <div>
+      <span className="eyebrow">Quick Actions</span>
+      <h2>What would you like to do?</h2>
+    </div>
+  </div>
+
+  <div className="quickActionGrid">
+    <button
+      className="quickAction"
+      onClick={() => setActiveTab('scholarships')}
+    >
+      <span className="quickActionIcon">🎓</span>
+      <span>
+        <strong>Find Scholarships</strong>
+        <small>Explore available schemes</small>
+      </span>
+      <b>→</b>
+    </button>
+
+    <button
+      className="quickAction"
+      onClick={() => setActiveTab('applications')}
+    >
+      <span className="quickActionIcon">📋</span>
+      <span>
+        <strong>My Applications</strong>
+        <small>Track your applications</small>
+      </span>
+      <b>→</b>
+    </button>
+
+    <button
+      className="quickAction"
+      onClick={() => setActiveTab('documents')}
+    >
+      <span className="quickActionIcon">📁</span>
+      <span>
+        <strong>Document Wallet</strong>
+        <small>Manage your documents</small>
+      </span>
+      <b>→</b>
+    </button>
+
+    <button
+      className="quickAction"
+      onClick={() => setActiveTab('grievances')}
+    >
+      <span className="quickActionIcon">🆘</span>
+      <span>
+        <strong>Get Support</strong>
+        <small>Submit a grievance</small>
+      </span>
+      <b>→</b>
+    </button>
+  </div>
+</section>
