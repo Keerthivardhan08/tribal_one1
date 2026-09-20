@@ -199,3 +199,27 @@ def metrics():
         "payments":len(dbt_transactions),
         "manual_review":sum(1 for a in applications.values() if a["status"]=="CVL_REVIEW")
     }
+from flask import Blueprint, request, jsonify
+
+auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+
+
+@auth_bp.post("/login")
+def login():
+    data = request.get_json() or {}
+
+    email = data.get("email")
+    password = data.get("password")
+
+    if not email or not password:
+        return jsonify({
+            "success": False,
+            "error": "Email and password are required"
+        }), 400
+
+    # Validate user here
+
+    return jsonify({
+        "success": True,
+        "message": "Login successful"
+    })
