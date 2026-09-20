@@ -805,3 +805,58 @@ aside {
   background: #86efac;
   animation: pulse 2s infinite;
 }
+@media (max-width: 900px) {
+  .quickActionGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .documentGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .paymentDetails {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .quickActionGrid,
+  .documentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .formGrid .full {
+    grid-column: auto;
+  }
+
+  .formActions {
+    flex-direction: column;
+  }
+
+  .formActions button {
+    width: 100%;
+  }
+
+  .sectionHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .timelineCard,
+  .journeyCard,
+  .formCard {
+    padding: 18px;
+  }
+
+  .paymentCard {
+    padding: 20px;
+  }
+
+  .paymentAmount strong {
+    font-size: 32px;
+  }
+}
