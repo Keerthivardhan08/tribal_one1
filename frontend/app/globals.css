@@ -694,3 +694,49 @@ aside {
     bottom: 15px;
   }
 }
+/* ========================================
+   PREMIUM SIDEBAR
+======================================== */
+
+aside {
+  background: linear-gradient(180deg, #ffffff 0%, #faf9ff 100%);
+}
+
+.logo {
+  padding: 14px 12px 28px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.logo::before {
+  content: '🎓';
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--primary-light);
+  font-size: 20px;
+}
+
+.nav button {
+  position: relative;
+  overflow: hidden;
+}
+
+.nav button::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  width: 3px;
+  height: 60%;
+  border-radius: 10px;
+  background: var(--primary);
+  transform: scaleY(0);
+  transition: .2s ease;
+}
+
+.nav button.active::before {
+  transform: scaleY(1);
+}
